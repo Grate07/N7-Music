@@ -116,7 +116,7 @@ Use an always-on Render instance for the bot. Free web services can spin down af
 If you do not use the Blueprint:
 
 - **Runtime:** Node
-- **Build command:** `corepack enable && pnpm install --frozen-lockfile && pnpm --filter @workspace/discord-bot run build`
+- **Build command:** `pnpm install --frozen-lockfile && pnpm --filter @workspace/discord-bot run build`
 - **Start command:** `pnpm --filter @workspace/discord-bot run start`
 - **Health check path:** `/health`
 - **Environment:** `DISCORD_TOKEN` as a secret, plus optional `DISCORD_GUILD_ID`

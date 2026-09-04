@@ -4,7 +4,7 @@ services:
     runtime: node
     # An always-on instance is required for a Discord gateway connection.
     plan: starter
-    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter @workspace/discord-bot run build
+    buildCommand: pnpm install --frozen-lockfile && pnpm --filter @workspace/discord-bot run build
     startCommand: pnpm --filter @workspace/discord-bot run start
     healthCheckPath: /health
     envVars:
