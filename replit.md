@@ -1,4 +1,4 @@
-# Midnight Music
+# N7 Music
 
 A Render-ready Discord music bot with slash-command playback, queues, looping, volume controls, and black embedded responses.
 
@@ -41,7 +41,7 @@ A Render-ready Discord music bot with slash-command playback, queues, looping, v
 
 ## Product
 
-Midnight Music plays searchable songs in Discord voice channels, maintains a per-server queue, and provides pause, resume, skip, volume, loop, now-playing, stop, leave, and feature-discovery commands.
+N7 Music plays searchable songs in Discord voice channels, maintains a per-server queue, and provides pause, resume, skip, volume, loop, now-playing, stop, leave, and feature-discovery commands.
 
 ## User preferences
 

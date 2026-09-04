@@ -1,8 +1,8 @@
-# Midnight Music
+# N7 Music
 
-![Midnight Music logo](discord-bot/docs/logo.gif)
+![N7 Music logo](discord-bot/docs/logo.gif)
 
-Midnight Music is a Discord music bot built for clean, reliable voice-channel playback. Every command response uses a black Discord embed, and the bot is designed to run as a long-lived Render Web Service with a health endpoint.
+N7 Music is a Discord music bot built for clean, reliable voice-channel playback. Every command response uses a black Discord embed, and the bot is designed to run as a long-lived Render Web Service with a health endpoint.
 
 ## Features
 
@@ -33,7 +33,7 @@ Midnight Music is a Discord music bot built for clean, reliable voice-channel pl
 | `/loop mode:<off/current song/queue>` | Changes the repeat mode |
 | `/stop` | Stops playback and clears the queue |
 | `/leave` | Clears the queue and disconnects the bot |
-| `/features` | Explains what Midnight Music can do |
+| `/features` | Explains what N7 Music can do |
 
 ## Discord application setup
 
@@ -127,7 +127,7 @@ Render Web Services provide the `PORT` variable automatically. The app listens o
 
 ```text
 discord-bot/
-├── docs/logo.gif       # supplied Midnight Music logo
+├── docs/logo.gif       # supplied N7 Music logo
 ├── src/commands.ts     # slash-command definitions
 ├── src/config.ts       # environment configuration
 ├── src/embeds.ts       # black embed helpers

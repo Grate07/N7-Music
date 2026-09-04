@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: midnight-music-bot
+    name: n7-music-bot
     runtime: node
     # An always-on instance is required for a Discord gateway connection.
     plan: starter
