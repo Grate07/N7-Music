@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Midnight Music, a Render-ready Discord music bot.",
+  "description": "N7 Music, a Render-ready Discord music bot.",
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc --noEmit",

@@ -59,7 +59,7 @@ const sameVoiceChannel = (
 };
 
 const featuresMessage = embed(
-  "Midnight Music",
+  "N7 Music",
   "A focused music bot for servers that want clean controls and reliable playback.",
 )
   .addFields(

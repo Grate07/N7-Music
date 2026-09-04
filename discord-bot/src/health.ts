@@ -5,14 +5,14 @@ export const startHealthServer = (port: number, isReady: () => boolean): Server 
   const app = express();
 
   app.get("/", (_request, response) => {
-    response.status(200).send("Midnight Music is running.");
+    response.status(200).send("N7 Music is running.");
   });
 
   app.get("/health", (_request, response) => {
     const ready = isReady();
     response.status(ready ? 200 : 503).json({
       status: ready ? "ok" : "starting",
-      service: "midnight-music",
+      service: "n7-music",
     });
   });
 

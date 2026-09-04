@@ -1,7 +1,7 @@
 import { EmbedBuilder } from "discord.js";
 
 export const BLACK = 0x000000;
-export const BRAND = "Midnight Music";
+export const BRAND = "N7 Music";
 
 export const embed = (title: string, description?: string): EmbedBuilder => {
   const message = new EmbedBuilder().setColor(BLACK).setTitle(title);

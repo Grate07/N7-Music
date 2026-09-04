@@ -58,5 +58,5 @@ export const commands = [
     ),
   new SlashCommandBuilder()
     .setName("features")
-    .setDescription("Learn what Midnight Music can do"),
+    .setDescription("Learn what N7 Music can do"),
 ].map((command) => command.toJSON());
