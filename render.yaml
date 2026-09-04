@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: midnight-music-bot
+    runtime: node
+    # An always-on instance is required for a Discord gateway connection.
+    plan: starter
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter @workspace/discord-bot run build
+    startCommand: pnpm --filter @workspace/discord-bot run start
+    healthCheckPath: /health
+    envVars:
+      - key: DISCORD_TOKEN
+        sync: false
+      - key: DISCORD_GUILD_ID
+        sync: false
+      - key: NODE_ENV
+        value: production
