@@ -1,30 +1,55 @@
-# N7 Music
+<div align="center">
+  <img src="discord-bot/docs/banner.gif" alt="N7 Music banner" width="220" />
+  <h1>N7 Music Discord Bot</h1>
+  <p>Clean voice-channel playback • Spotify playlist URLs • Render-ready hosting</p>
+  <p>
+    <img src="https://img.shields.io/badge/discord.js-v14-5865F2?logo=discord&logoColor=white" alt="discord.js v14" />
+    <img src="https://img.shields.io/badge/Node.js-18%2B-339933?logo=node.js&logoColor=white" alt="Node.js 18 or newer" />
+    <img src="https://img.shields.io/badge/hosting-Render-46E3B7?logo=render&logoColor=111111" alt="Render hosting" />
+    <img src="https://img.shields.io/badge/license-configure%20before%20publishing-6d28d9" alt="License needs to be configured" />
+  </p>
+</div>
 
-![N7 Music logo](discord-bot/docs/logo.gif)
+---
 
-N7 Music is a Discord music bot built for clean, reliable voice-channel playback. Every command response uses a black Discord embed, and the bot is designed to run as a long-lived Render Web Service with a health endpoint.
+## Contents
+
+- [Overview](#overview)
+- [Features](#features)
+- [Commands](#commands)
+- [Spotify playlist URLs](#spotify-playlist-urls)
+- [Discord setup](#discord-setup)
+- [Configuration](#configuration)
+- [Run locally](#run-locally)
+- [Deploy on Render](#deploy-on-render)
+- [Project layout](#project-layout)
+- [Troubleshooting](#troubleshooting)
+- [Security and usage notes](#security-and-usage-notes)
+
+## Overview
+
+N7 Music is a Discord music bot for servers that want simple, fast playback controls. It uses slash commands, keeps a separate queue for each server, and replies with black embeds styled around the N7 brand.
+
+The project is a pnpm workspace containing a standalone TypeScript bot package. It includes an Express health endpoint so Render can monitor the process while the Discord gateway connection stays active.
 
 ## Features
 
-- Search for a song by title, artist, or supported URL with `/play`
-- Resolve public Spotify tracks, albums, and playlists into playable queued tracks
-- Per-server playback queues
-- Pause and resume playback
-- Skip the current track
-- View the current queue or the now-playing track
-- Set volume from 1% to 100%
-- Repeat the current track, repeat the full queue, or turn looping off
-- Stop playback, clear the queue, or disconnect with `/stop` and `/leave`
-- Discover the full feature list inside Discord with `/features`
-- Consistent black embeds with helpful error messages
-- Built-in `/health` endpoint for Render monitoring
-- FFmpeg bundled through `ffmpeg-static`, so no manual server package install is needed
+- Search for a song by title or artist with `/play`.
+- Play supported music URLs.
+- Paste a public Spotify track, album, or playlist URL and queue its matching tracks.
+- Keep an independent playback queue for every Discord server.
+- Pause, resume, skip, stop, leave, change volume, and repeat tracks.
+- Show the current queue and now-playing information.
+- Use black Discord embeds with track artwork and requester information.
+- Discover the complete feature list with `/features`.
+- Run with bundled FFmpeg through `ffmpeg-static`.
+- Monitor startup with `/health` on Render.
 
-## Slash commands
+## Commands
 
 | Command | What it does |
 | --- | --- |
-| `/play query:<song or URL>` | Joins your voice channel and plays or queues a song or public Spotify track, album, or playlist |
+| `/play query:<song or URL>` | Joins your voice channel and plays or queues a song or playlist |
 | `/skip` | Skips to the next queued track |
 | `/pause` | Pauses the current track |
 | `/resume` | Resumes paused playback |
@@ -36,47 +61,68 @@ N7 Music is a Discord music bot built for clean, reliable voice-channel playback
 | `/leave` | Clears the queue and disconnects the bot |
 | `/features` | Explains what N7 Music can do |
 
-## Discord application setup
+## Spotify playlist URLs
 
-1. Open the [Discord Developer Portal](https://discord.com/developers/applications) and create an application.
-2. On **General Information**, upload `discord-bot/docs/logo.gif` as the application icon.
-3. Open **Bot**, create the bot user, upload the same file as the bot avatar, and copy its token. Keep it private.
-4. Under **Bot**, enable only the intents this project uses:
+To play a playlist, join the voice channel first and use the playlist URL as the `/play` query:
+
+```text
+/play query:https://open.spotify.com/playlist/PLAYLIST_ID
+```
+
+N7 Music will:
+
+1. Resolve the public Spotify playlist.
+2. Add the available tracks to the server queue.
+3. Start the first track if nothing is already playing.
+4. Reply with the playlist name, track count, thumbnail, duration, and requester.
+
+Spotify links provide track metadata. The bot resolves each song to a playable source through its installed extractors; it does not stream protected Spotify audio directly. Public playlists are supported. Private, account-only playlists require a separate user authorization flow.
+
+## Discord setup
+
+1. Open the [Discord Developer Portal](https://discord.com/developers/applications).
+2. Create an application and name it **N7 Music**.
+3. On **General Information**, upload `discord-bot/docs/banner.gif` or `discord-bot/docs/logo.gif` as the application icon.
+4. Open **Bot**, create the bot user, and upload the same N7 image as its avatar.
+5. Copy the bot token into a secure secret store. Never commit it.
+6. Under **Bot**, enable the intents used by this project:
    - `Guilds`
    - `Guild Voice States`
-5. Open **OAuth2 → URL Generator**.
-6. Select the `bot` and `applications.commands` scopes.
-7. Grant these bot permissions:
+7. Open **OAuth2 → URL Generator**.
+8. Select the `bot` and `applications.commands` scopes.
+9. Grant these bot permissions:
    - View Channel
    - Send Messages
    - Embed Links
    - Connect
    - Speak
    - Use Voice Activity
-8. Use the generated URL to invite the bot to your server.
+10. Use the generated URL to invite the bot to your server.
 
 The bot does not need the privileged Message Content intent because it uses slash commands instead of reading ordinary messages.
 
 ## Configuration
 
-Copy `.env.example` to `.env` for local development:
+Copy the safe template for local development:
 
 ```bash
 cp .env.example .env
 ```
 
-Set these values:
-
 | Variable | Required | Description |
 | --- | --- | --- |
-| `DISCORD_TOKEN` | Yes | The bot token from the Discord Developer Portal |
-| `DISCORD_GUILD_ID` | No | A test server ID for instant command registration |
-| `SPOTIFY_CLIENT_ID` | No | Spotify Web API client ID for reliable public playlist resolution |
-| `SPOTIFY_CLIENT_SECRET` | No | Spotify Web API client secret paired with the client ID |
+| `DISCORD_TOKEN` | Yes | Bot token from the Discord Developer Portal |
+| `DISCORD_GUILD_ID` | No | Test server ID for near-instant command registration |
+| `SPOTIFY_CLIENT_ID` | Recommended | Spotify Web API client ID for reliable public playlist resolution |
+| `SPOTIFY_CLIENT_SECRET` | Recommended | Spotify Web API client secret paired with the client ID |
 | `PORT` | No | HTTP health server port; Render supplies this automatically |
 | `NODE_ENV` | No | Use `production` on Render |
 
-Never commit `.env` or a bot token. Use Replit Secrets locally in this workspace and Render's secret environment variable field in production.
+Never commit `.env`, a Discord token, or Spotify credentials. Use Replit Secrets locally and Render's secret environment variables in production.
+
+### Spotify API credentials
+
+For reliable playlist resolution, create an application in the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard), then add its client ID and client secret as secure environment variables. These are app credentials, not a user's Spotify password.
 
 ## Run locally
 
@@ -93,7 +139,10 @@ Check the bot package without logging in:
 pnpm --filter @workspace/discord-bot run typecheck
 ```
 
-The health server responds at `http://localhost:10000/health` when `PORT=10000`. A `200` response means Discord login and slash-command registration completed; a `503` response means the process is still starting.
+The health server responds at `http://localhost:10000/health` when `PORT=10000`:
+
+- `200` with `"status":"ok"` means Discord login and slash-command registration completed.
+- `503` with `"status":"starting"` means the process is still starting.
 
 ### Fast command registration during development
 
@@ -101,36 +150,39 @@ Set `DISCORD_GUILD_ID` to the ID of a server where you installed the bot. Guild 
 
 ## Deploy on Render
 
-This repository includes `render.yaml`, which defines an always-on Node Web Service with the correct build command, start command, and health check.
+The included `render.yaml` defines an always-on Node Web Service with the build command, start command, and `/health` check already configured.
 
-Use an always-on Render instance for the bot. Free web services can spin down after inactivity, which disconnects a Discord bot from the gateway and makes playback unreliable.
+Use an always-on instance. A service that sleeps can disconnect the Discord gateway and make playback unreliable.
 
 ### Blueprint deployment
 
-1. Push the repository to GitHub or another Git provider supported by Render.
+1. Push this repository to GitHub.
 2. In Render, choose **New → Blueprint**.
 3. Select the repository and let Render read `render.yaml`.
-4. When Render asks for `DISCORD_TOKEN`, paste the bot token into the secret field. Do not add it to the YAML file or commit it.
-5. Optionally add `DISCORD_GUILD_ID` while testing. Remove it later if you want global slash commands.
-6. Deploy the service.
+4. Add `DISCORD_TOKEN` as a Render secret.
+5. Optionally add `DISCORD_GUILD_ID` for fast command registration during testing.
+6. Add `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET` as secrets if Spotify playlist resolution needs the authenticated API path.
+7. Deploy the service.
 
 ### Manual Web Service deployment
 
-If you do not use the Blueprint:
+If you do not use the Blueprint, use:
 
 - **Runtime:** Node
 - **Build command:** `pnpm install --frozen-lockfile && pnpm --filter @workspace/discord-bot run build`
 - **Start command:** `pnpm --filter @workspace/discord-bot run start`
 - **Health check path:** `/health`
-- **Environment:** `DISCORD_TOKEN` as a secret, plus optional `DISCORD_GUILD_ID`
+- **Required secret:** `DISCORD_TOKEN`
+- **Optional secrets:** `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`
 
-Render Web Services provide the `PORT` variable automatically. The app listens on `0.0.0.0`, so Render can reach the health endpoint while the Discord gateway connection stays active.
+Render supplies `PORT` automatically. The app listens on `0.0.0.0`, allowing Render to reach the health endpoint while the Discord gateway remains connected.
 
 ## Project layout
 
 ```text
 discord-bot/
-├── docs/logo.gif       # supplied N7 Music logo
+├── docs/banner.gif     # README and N7 brand banner
+├── docs/logo.gif       # N7 bot logo/avatar
 ├── src/commands.ts     # slash-command definitions
 ├── src/config.ts       # environment configuration
 ├── src/embeds.ts       # black embed helpers
@@ -138,25 +190,37 @@ discord-bot/
 └── src/index.ts        # Discord client, player, and command handlers
 render.yaml             # Render service definition
 .env.example            # safe configuration template
+n7-music-bot.zip        # latest project archive
 ```
 
 ## Troubleshooting
 
 ### Slash commands do not appear
 
-Set `DISCORD_GUILD_ID` to your server ID and restart the service. Make sure the invite included the `applications.commands` scope. When using global commands, allow extra time for Discord to distribute them.
+Set `DISCORD_GUILD_ID` to your server ID and restart the service. Make sure the invite included the `applications.commands` scope. Global commands can take longer to propagate.
 
 ### The bot cannot join or play
 
 Check that the bot has `Connect`, `Speak`, and `Use Voice Activity` permissions in the voice channel. The person using `/play` must also be in a voice channel.
 
+### A Spotify playlist cannot be resolved
+
+Confirm that the link is a public Spotify track, album, or playlist URL. Add `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET` as secure variables, then restart the bot. Private playlists need user authorization and are not supported by app credentials alone.
+
 ### Render reports an unhealthy service
 
-Open the service logs and confirm the bot token is present as a Render secret. The health endpoint intentionally returns `503` until Discord login and slash-command registration finish.
+Open the service logs and confirm that `DISCORD_TOKEN` is present as a Render secret. The health endpoint intentionally returns `503` until Discord login and slash-command registration finish.
 
 ### Audio source changes
 
 Audio platforms can change their access behavior. Use sources supported by the installed extractors and follow each platform's terms and applicable copyright rules. This project does not bypass paywalls, private content, or access controls.
+
+## Security and usage notes
+
+- Never share or commit Discord tokens or Spotify secrets.
+- Reset a Discord token immediately if it is exposed.
+- Keep bot permissions limited to the channels where music is needed.
+- Respect the terms of each audio platform and applicable copyright rules.
 
 ## License
 
