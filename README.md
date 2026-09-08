@@ -22,6 +22,7 @@
 - [Configuration](#configuration)
 - [Run locally](#run-locally)
 - [Deploy on Render](#deploy-on-render)
+- [Keep the free Render service warm](#keep-the-free-render-service-warm)
 - [Project layout](#project-layout)
 - [Troubleshooting](#troubleshooting)
 - [Security and usage notes](#security-and-usage-notes)
@@ -45,6 +46,7 @@ The project is a pnpm workspace containing a standalone TypeScript bot package. 
 - Use black Discord embeds with track artwork and requester information.
 - Discover the complete feature list with `/features`.
 - Run with bundled FFmpeg through `ffmpeg-static`.
+- Use the Discord voice channel's negotiated bitrate automatically for the clearest available playback.
 - Monitor startup with `/health` on Render.
 
 ## Commands
@@ -178,9 +180,13 @@ Set `DISCORD_GUILD_ID` to the ID of a server where you installed the bot. Guild 
 
 ## Deploy on Render
 
-The included `render.yaml` defines an always-on Node Web Service with the build command, start command, and `/health` check already configured.
+The included `render.yaml` defines a Node Web Service with the build command, start command, and `/health` check already configured.
 
-Use an always-on instance. A service that sleeps can disconnect the Discord gateway and make playback unreliable.
+### Important free-plan limitation
+
+Render's free web services are not truly always-on. Render spins a free service down after 15 minutes without inbound traffic, and it can take about a minute to wake up. Render also grants 750 free instance hours per month, which is enough for roughly one month of continuous runtime but does not guarantee uptime.
+
+For reliable Discord gateway connectivity, a paid always-on Render instance is the proper option. If you need a no-cost setup, use the best-effort keep-warm method below.
 
 ### Blueprint deployment
 
@@ -190,7 +196,8 @@ Use an always-on instance. A service that sleeps can disconnect the Discord gate
 4. Add `DISCORD_TOKEN` as a Render secret.
 5. Optionally add `DISCORD_GUILD_ID` for fast command registration during testing.
 6. Add `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET` as secrets if Spotify playlist resolution needs the authenticated API path.
-7. Deploy the service.
+7. Choose the **Free** instance plan if Render asks you to select a plan.
+8. Deploy the service.
 
 ### Manual Web Service deployment
 
@@ -204,6 +211,34 @@ If you do not use the Blueprint, use:
 - **Optional secrets:** `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`
 
 Render supplies `PORT` automatically. The app listens on `0.0.0.0`, allowing Render to reach the health endpoint while the Discord gateway remains connected.
+
+## Keep the free Render service warm
+
+UptimeRobot can send a health request every 5 minutes so the free Render service receives inbound traffic before the 15-minute idle window expires.
+
+1. Deploy the service using the Render steps above.
+2. Open the Render service page and copy its public URL. It will look similar to `https://n7-music-bot.onrender.com`.
+3. Confirm the health endpoint in a browser:
+
+   ```text
+   https://YOUR-RENDER-SERVICE.onrender.com/health
+   ```
+
+   Wait until it returns `"status":"ok"`.
+4. Create a free account at [UptimeRobot](https://uptimerobot.com/).
+5. Choose **Add New Monitor**.
+6. Select **HTTP(s)**.
+7. Use a name such as `N7 Music Render`.
+8. Set the URL to:
+
+   ```text
+   https://YOUR-RENDER-SERVICE.onrender.com/health
+   ```
+
+9. Set the monitoring interval to **5 minutes**, then save the monitor.
+10. Enable email or push alerts so you know if the service returns an error.
+
+UptimeRobot helps prevent idle sleep, but it cannot prevent Render restarts, monthly free-hour suspension, provider outages, or Discord gateway disconnects. A free Render service should therefore be treated as best-effort rather than guaranteed 24/7 hosting.
 
 ## Project layout
 

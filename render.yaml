@@ -2,8 +2,9 @@ services:
   - type: web
     name: n7-music-bot
     runtime: node
-    # An always-on instance is required for a Discord gateway connection.
-    plan: starter
+    # Free services can sleep; UptimeRobot can keep this HTTP health endpoint warm.
+    # This is best-effort 24/7 hosting, not a guaranteed always-on instance.
+    plan: free
     buildCommand: pnpm install --frozen-lockfile && pnpm --filter @workspace/discord-bot run build
     startCommand: pnpm --filter @workspace/discord-bot run start
     healthCheckPath: /health

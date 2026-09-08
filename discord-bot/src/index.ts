@@ -426,9 +426,13 @@ client.on(Events.InteractionCreate, async (interaction) => {
       const source = interaction.options.getString("source") ?? "auto";
       const queue = player.nodes.create(interaction.guildId, {
         metadata: { channel: interaction.channel },
+        // Keep the source at full volume; the channel bitrate is applied when
+        // the Discord voice dispatcher is created.
+        volume: 100,
         leaveOnEnd: true,
         leaveOnEmpty: true,
         leaveOnEmptyCooldown: 30_000,
+        bufferingTimeout: 30_000,
       });
 
       if (queue.connection && !sameVoiceChannel(interaction, queue)) {
@@ -616,6 +620,9 @@ player.events.on("playerError", (queue, error) => {
 });
 
 player.events.on("playerStart", async (queue) => {
+  // "auto" uses the voice channel's negotiated bitrate instead of the
+  // library's conservative 64 kbps fallback.
+  queue.node.setBitrate("auto");
   updatePresence(queue);
 
   const channel = queue.metadata?.channel;
