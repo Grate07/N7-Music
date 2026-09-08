@@ -38,7 +38,9 @@ The project is a pnpm workspace containing a standalone TypeScript bot package. 
 - Play supported music URLs.
 - Paste a public Spotify track, album, or playlist URL and queue its matching tracks.
 - Keep an independent playback queue for every Discord server.
+- Use the interactive Now Playing control panel shown in Discord after playback starts.
 - Pause, resume, skip, stop, leave, change volume, and repeat tracks.
+- Control previous, next, queue, loop, shuffle, and autoplay directly from the panel.
 - Show the current queue and now-playing information.
 - Use black Discord embeds with track artwork and requester information.
 - Discover the complete feature list with `/features`.
@@ -49,7 +51,7 @@ The project is a pnpm workspace containing a standalone TypeScript bot package. 
 
 | Command | What it does |
 | --- | --- |
-| `/play query:<song or URL>` | Joins your voice channel and plays or queues a song or playlist |
+| `/play query:<song or URL> source:<auto/spotify/youtube/soundcloud>` | Joins your voice channel and plays or queues a song or playlist |
 | `/skip` | Skips to the next queued track |
 | `/pause` | Pauses the current track |
 | `/resume` | Resumes paused playback |
@@ -61,6 +63,23 @@ The project is a pnpm workspace containing a standalone TypeScript bot package. 
 | `/leave` | Clears the queue and disconnects the bot |
 | `/features` | Explains what N7 Music can do |
 
+### Interactive Now Playing panel
+
+When a track begins, N7 Music posts a black **Now Playing** panel with the track artwork, duration, requester, and buttons:
+
+| Button | Action |
+| --- | --- |
+| Previous | Returns to the previous track when playback history is available |
+| Pause / Resume | Pauses or resumes the current track |
+| Next | Skips to the next queued track |
+| Queue | Shows the upcoming queue privately to the person who clicked |
+| Stop | Stops playback, clears the queue, and leaves the voice channel |
+| Loop | Cycles through off, current-song, and full-queue repeat |
+| Shuffle | Toggles dynamic queue shuffle |
+| Autoplay | Enables or disables similar-track autoplay when the queue ends |
+
+Only members in the bot's current voice channel can use playback controls. The bot also updates its Discord activity to show the current track while music is playing.
+
 ## Spotify playlist URLs
 
 To play a playlist, join the voice channel first and use the playlist URL as the `/play` query:
@@ -68,6 +87,15 @@ To play a playlist, join the voice channel first and use the playlist URL as the
 ```text
 /play query:https://open.spotify.com/playlist/PLAYLIST_ID
 ```
+
+For a text search, choose a source from the optional `source` menu:
+
+```text
+/play query:Trapped in My Mind source:Spotify
+/play query:lofi hip hop source:YouTube
+```
+
+When the query is a URL, leave the source on **Auto detect** so N7 Music can identify the URL type automatically.
 
 N7 Music will:
 

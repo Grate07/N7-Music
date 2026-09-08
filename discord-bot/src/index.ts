@@ -1,5 +1,18 @@
-import { REST, Routes, type ChatInputCommandInteraction, type GuildMember } from "discord.js";
-import { Client, GatewayIntentBits, Events, ChannelType } from "discord.js";
+import {
+  ActionRowBuilder,
+  ActivityType,
+  ButtonBuilder,
+  ButtonStyle,
+  ChannelType,
+  Client,
+  Events,
+  GatewayIntentBits,
+  REST,
+  Routes,
+  type ButtonInteraction,
+  type ChatInputCommandInteraction,
+  type GuildMember,
+} from "discord.js";
 import { Player, QueryType, QueueRepeatMode } from "discord-player";
 import { DefaultExtractors, SpotifyExtractor } from "@discord-player/extractor";
 import ffmpegPath from "ffmpeg-static";
@@ -29,11 +42,12 @@ let isReady = false;
 const reply = async (
   interaction: ChatInputCommandInteraction,
   message: ReturnType<typeof embed>,
+  components: ActionRowBuilder<ButtonBuilder>[] = [],
 ): Promise<void> => {
   if (interaction.replied || interaction.deferred) {
-    await interaction.editReply({ embeds: [message] });
+    await interaction.editReply({ embeds: [message], components });
   } else {
-    await interaction.reply({ embeds: [message] });
+    await interaction.reply({ embeds: [message], components });
   }
 };
 
@@ -56,6 +70,242 @@ const sameVoiceChannel = (
   const botChannel = queue.connection?.joinConfig.channelId;
 
   return Boolean(member?.voice.channelId && botChannel === member.voice.channelId);
+};
+
+type MusicQueue = ReturnType<typeof player.nodes.create>;
+
+const controlPanel = (queue: MusicQueue): ActionRowBuilder<ButtonBuilder>[] => {
+  const loopLabel =
+    queue.repeatMode === QueueRepeatMode.TRACK
+      ? "Loop song"
+      : queue.repeatMode === QueueRepeatMode.QUEUE
+        ? "Loop queue"
+        : "Loop";
+
+  return [
+    new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder()
+        .setCustomId("n7:previous")
+        .setEmoji("⏮️")
+        .setLabel("Previous")
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId("n7:pause")
+        .setEmoji(queue.node.isPaused() ? "▶️" : "⏸️")
+        .setLabel(queue.node.isPaused() ? "Resume" : "Pause")
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId("n7:skip")
+        .setEmoji("⏭️")
+        .setLabel("Next")
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId("n7:queue")
+        .setEmoji("🎼")
+        .setLabel("Queue")
+        .setStyle(ButtonStyle.Secondary),
+    ),
+    new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder()
+        .setCustomId("n7:stop")
+        .setEmoji("⏹️")
+        .setLabel("Stop")
+        .setStyle(ButtonStyle.Danger),
+      new ButtonBuilder()
+        .setCustomId("n7:loop")
+        .setEmoji("🔁")
+        .setLabel(loopLabel)
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId("n7:shuffle")
+        .setEmoji("🔀")
+        .setLabel(queue.isShuffling ? "Shuffle on" : "Shuffle")
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId("n7:autoplay")
+        .setEmoji("♻️")
+        .setLabel(queue.repeatMode === QueueRepeatMode.AUTOPLAY ? "Autoplay on" : "Autoplay")
+        .setStyle(ButtonStyle.Secondary),
+    ),
+  ];
+};
+
+const nowPlayingEmbed = (queue: MusicQueue) => {
+  const track = queue.currentTrack;
+  if (!track) {
+    return errorEmbed("Nothing is playing right now.");
+  }
+
+  const requester = track.requestedBy
+    ? `<@${track.requestedBy.id}> (${track.requestedBy.username})`
+    : "N7 Music";
+  const status = queue.node.isPaused() ? "Paused" : "Playing";
+
+  return embed(
+    `Now Playing · ${status}`,
+    `🟢 [${truncate(track.title)}](${track.url}) — **${truncate(track.author, 60)}**`,
+  )
+    .addFields(
+      {
+        name: "Duration",
+        value: `\`${formatDuration(track.durationMS / 1000)}\``,
+        inline: true,
+      },
+      {
+        name: "Requested by",
+        value: requester,
+        inline: false,
+      },
+    )
+    .setThumbnail(track.thumbnail)
+    .setTimestamp();
+};
+
+const searchEngineForSource = (source: string, query: string) => {
+  if (/^https?:\/\//i.test(query)) {
+    return QueryType.AUTO;
+  }
+
+  switch (source) {
+    case "spotify":
+      return QueryType.SPOTIFY_SEARCH;
+    case "youtube":
+      return QueryType.YOUTUBE_SEARCH;
+    case "soundcloud":
+      return QueryType.SOUNDCLOUD_SEARCH;
+    default:
+      return QueryType.AUTO_SEARCH;
+  }
+};
+
+const queueSummary = (queue: MusicQueue) => {
+  const current = queue.currentTrack;
+  const tracks = queue.tracks.toArray();
+  const upcoming =
+    tracks.length > 0
+      ? tracks
+          .slice(0, 10)
+          .map(
+            (track, index) =>
+              `**${index + 1}.** ${truncate(track.title)} · \`${formatDuration(track.durationMS / 1000)}\``,
+          )
+          .join("\n")
+      : "No more songs are queued.";
+
+  return embed("Current queue", current ? `Now playing: **${truncate(current.title)}**` : undefined)
+    .addFields({ name: "Up next", value: upcoming })
+    .setTimestamp();
+};
+
+const updatePresence = (queue: MusicQueue): void => {
+  const track = queue.currentTrack;
+  client.user?.setActivity(track ? track.title : "your music", {
+    type: track ? ActivityType.Listening : ActivityType.Watching,
+  });
+};
+
+const memberControlsQueue = (
+  interaction: ButtonInteraction,
+  queue: MusicQueue,
+): boolean => {
+  const member = interaction.member as GuildMember | null;
+  const memberChannelId = member?.voice.channelId;
+  const botChannelId = queue.connection?.joinConfig.channelId;
+
+  return Boolean(memberChannelId && botChannelId && memberChannelId === botChannelId);
+};
+
+const handleControlButton = async (interaction: ButtonInteraction): Promise<void> => {
+  if (!interaction.guildId) {
+    await interaction.reply({ embeds: [errorEmbed("These controls only work inside a server.")], ephemeral: true });
+    return;
+  }
+
+  const queue = player.nodes.get(interaction.guildId);
+  if (!queue) {
+    await interaction.reply({ embeds: [errorEmbed("There is no active player in this server.")], ephemeral: true });
+    return;
+  }
+
+  if (interaction.customId === "n7:queue") {
+    await interaction.reply({ embeds: [queueSummary(queue)], ephemeral: true });
+    return;
+  }
+
+  if (!memberControlsQueue(interaction, queue)) {
+    await interaction.reply({
+      embeds: [errorEmbed("Join my voice channel to use these controls.")],
+      ephemeral: true,
+    });
+    return;
+  }
+
+  switch (interaction.customId) {
+    case "n7:previous":
+      if (!queue.history.previousTrack) {
+        await interaction.reply({
+          embeds: [errorEmbed("There is no previous track in the history.")],
+          ephemeral: true,
+        });
+        return;
+      }
+      await interaction.deferUpdate();
+      await queue.history.previous();
+      return;
+    case "n7:pause":
+      queue.node.setPaused(!queue.node.isPaused());
+      await interaction.update({
+        embeds: [nowPlayingEmbed(queue)],
+        components: controlPanel(queue),
+      });
+      return;
+    case "n7:skip":
+      await interaction.deferUpdate();
+      await queue.node.skip();
+      return;
+    case "n7:stop":
+      queue.delete();
+      client.user?.setActivity("your music", { type: ActivityType.Watching });
+      await interaction.update({
+        embeds: [successEmbed("Stopped", "Playback stopped and the queue was cleared.")],
+        components: [],
+      });
+      return;
+    case "n7:loop": {
+      const nextMode =
+        queue.repeatMode === QueueRepeatMode.OFF
+          ? QueueRepeatMode.TRACK
+          : queue.repeatMode === QueueRepeatMode.TRACK
+            ? QueueRepeatMode.QUEUE
+            : QueueRepeatMode.OFF;
+      queue.setRepeatMode(nextMode);
+      await interaction.update({
+        embeds: [nowPlayingEmbed(queue)],
+        components: controlPanel(queue),
+      });
+      return;
+    }
+    case "n7:shuffle":
+      queue.toggleShuffle(true);
+      await interaction.update({
+        embeds: [nowPlayingEmbed(queue)],
+        components: controlPanel(queue),
+      });
+      return;
+    case "n7:autoplay":
+      queue.setRepeatMode(
+        queue.repeatMode === QueueRepeatMode.AUTOPLAY
+          ? QueueRepeatMode.OFF
+          : QueueRepeatMode.AUTOPLAY,
+      );
+      await interaction.update({
+        embeds: [nowPlayingEmbed(queue)],
+        components: controlPanel(queue),
+      });
+      return;
+    default:
+      await interaction.reply({ embeds: [errorEmbed("That control is no longer available.")], ephemeral: true });
+  }
 };
 
 const featuresMessage = embed(
@@ -131,6 +381,21 @@ client.once(Events.ClientReady, async (readyClient) => {
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {
+  if (interaction.isButton()) {
+    try {
+      await handleControlButton(interaction);
+    } catch (error) {
+      console.error(`Control ${interaction.customId} failed:`, error);
+      if (!interaction.replied && !interaction.deferred) {
+        await interaction.reply({
+          embeds: [errorEmbed("I could not complete that control.")],
+          ephemeral: true,
+        });
+      }
+    }
+    return;
+  }
+
   if (!interaction.isChatInputCommand()) {
     return;
   }
@@ -158,6 +423,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
       await interaction.deferReply();
       const query = interaction.options.getString("query", true);
+      const source = interaction.options.getString("source") ?? "auto";
       const queue = player.nodes.create(interaction.guildId, {
         metadata: { channel: interaction.channel },
         leaveOnEnd: true,
@@ -179,7 +445,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
       const result = await player.search(query, {
         requestedBy: interaction.user.id,
-        searchEngine: QueryType.AUTO,
+        searchEngine: searchEngineForSource(source, query),
       });
 
       if (!result.hasTracks()) {
@@ -281,25 +547,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
 
     if (interaction.commandName === "queue") {
-      const current = queue.currentTrack;
-      const tracks = queue.tracks.toArray();
-      const upcoming =
-        tracks.length > 0
-          ? tracks
-              .slice(0, 10)
-              .map(
-                (track, index) =>
-                  `**${index + 1}.** ${truncate(track.title)} · \`${formatDuration(track.durationMS / 1000)}\``,
-              )
-              .join("\n")
-          : "No more songs are queued.";
-
-      await reply(
-        interaction,
-        embed("Current queue", current ? `Now playing: **${truncate(current.title)}**` : undefined)
-          .addFields({ name: "Up next", value: upcoming })
-          .setTimestamp(),
-      );
+      await reply(interaction, queueSummary(queue));
       return;
     }
 
@@ -312,14 +560,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
       await reply(
         interaction,
-        embed("Now playing", `[${track.title}](${track.url}) by **${track.author}**`)
-          .addFields({
-            name: "Duration",
-            value: `\`${formatDuration(track.durationMS / 1000)}\``,
-            inline: true,
-          })
-          .setThumbnail(track.thumbnail)
-          .setTimestamp(),
+        nowPlayingEmbed(queue),
+        controlPanel(queue),
       );
       return;
     }
@@ -371,6 +613,22 @@ player.events.on("error", (queue, error) => {
 
 player.events.on("playerError", (queue, error) => {
   console.error(`Track error in guild ${queue.guild.id}:`, error);
+});
+
+player.events.on("playerStart", async (queue) => {
+  updatePresence(queue);
+
+  const channel = queue.metadata?.channel;
+  if (channel && "send" in channel && typeof channel.send === "function") {
+    await channel.send({
+      embeds: [nowPlayingEmbed(queue)],
+      components: controlPanel(queue),
+    });
+  }
+});
+
+player.events.on("queueDelete", () => {
+  client.user?.setActivity("your music", { type: ActivityType.Watching });
 });
 
 startHealthServer(config.port, () => isReady);

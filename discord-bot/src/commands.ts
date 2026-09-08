@@ -9,6 +9,17 @@ export const commands = [
         .setName("query")
         .setDescription("A song, supported URL, or public Spotify playlist link")
         .setRequired(true),
+    )
+    .addStringOption((option) =>
+      option
+        .setName("source")
+        .setDescription("Choose where to search when query is not already a URL")
+        .addChoices(
+          { name: "Auto detect", value: "auto" },
+          { name: "Spotify", value: "spotify" },
+          { name: "YouTube", value: "youtube" },
+          { name: "SoundCloud", value: "soundcloud" },
+        ),
     ),
   new SlashCommandBuilder()
     .setName("skip")
