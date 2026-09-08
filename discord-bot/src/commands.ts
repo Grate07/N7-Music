@@ -3,11 +3,11 @@ import { SlashCommandBuilder } from "discord.js";
 export const commands = [
   new SlashCommandBuilder()
     .setName("play")
-    .setDescription("Play a song or add it to the queue")
+    .setDescription("Play a song, Spotify track, album, or playlist")
     .addStringOption((option) =>
       option
         .setName("query")
-        .setDescription("A song title, artist, or supported URL")
+        .setDescription("A song, supported URL, or public Spotify playlist link")
         .setRequired(true),
     ),
   new SlashCommandBuilder()

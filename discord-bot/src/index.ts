@@ -1,7 +1,7 @@
 import { REST, Routes, type ChatInputCommandInteraction, type GuildMember } from "discord.js";
 import { Client, GatewayIntentBits, Events, ChannelType } from "discord.js";
 import { Player, QueryType, QueueRepeatMode } from "discord-player";
-import { DefaultExtractors } from "@discord-player/extractor";
+import { DefaultExtractors, SpotifyExtractor } from "@discord-player/extractor";
 import ffmpegPath from "ffmpeg-static";
 import { commands } from "./commands.js";
 import { config } from "./config.js";
@@ -81,6 +81,12 @@ const featuresMessage = embed(
       inline: false,
     },
     {
+      name: "Spotify support",
+      value:
+        "Paste a public Spotify track, album, or playlist link into `/play`; N7 Music will resolve it and queue the matching tracks.",
+      inline: false,
+    },
+    {
       name: "Cleanup",
       value: "`/stop` clears playback. `/leave` disconnects the bot and clears the queue.",
       inline: false,
@@ -104,7 +110,17 @@ const registerCommands = async (applicationId: string): Promise<void> => {
 
 client.once(Events.ClientReady, async (readyClient) => {
   try {
-    await player.extractors.loadMulti(DefaultExtractors);
+    await player.extractors.loadMulti(DefaultExtractors, {
+      "com.discord-player.applemusicextractor": undefined,
+      "com.discord-player.attachmentextractor": undefined,
+      "com.discord-player.reverbnationextractor": undefined,
+      "com.discord-player.soundcloudextractor": undefined,
+      [SpotifyExtractor.identifier]: {
+        clientId: config.spotifyClientId,
+        clientSecret: config.spotifyClientSecret,
+      },
+      "com.discord-player.vimeoextractor": undefined,
+    });
     await registerCommands(readyClient.user.id);
     isReady = true;
     console.info(`Logged in as ${readyClient.user.tag}.`);
@@ -171,19 +187,39 @@ client.on(Events.InteractionCreate, async (interaction) => {
         return;
       }
 
-      const track = result.tracks[0];
-      queue.addTrack(track);
+      const firstTrack = result.tracks[0];
+      const tracksToQueue = result.playlist ? result.tracks : [firstTrack];
+      queue.addTrack(tracksToQueue);
 
       if (!queue.node.isPlaying() && !queue.node.isPaused()) {
         await queue.node.play();
       }
 
+      const playlistLabel = result.playlist
+        ? `\n\n**${tracksToQueue.length} tracks** from **${truncate(result.playlist.title, 100)}** added to the queue.`
+        : "";
+      const requestedBy = `<@${interaction.user.id}> (${interaction.user.username})`;
+
       await reply(
         interaction,
         successEmbed(
-          queue.node.isPlaying() ? "Added to the queue" : "Ready to play",
-          `[${truncate(track.title)}](${track.url}) by **${truncate(track.author, 60)}**\nDuration: \`${formatDuration(track.durationMS / 1000)}\``,
-        ).setThumbnail(track.thumbnail),
+          "Added to Queue",
+          `🟢 [${truncate(firstTrack.title)}](${firstTrack.url}) — **${truncate(firstTrack.author, 60)}**${playlistLabel}`,
+        )
+          .addFields(
+            {
+              name: "Duration",
+              value: `\`${formatDuration(firstTrack.durationMS / 1000)}\``,
+              inline: true,
+            },
+            {
+              name: "Requested by",
+              value: requestedBy,
+              inline: false,
+            },
+          )
+          .setThumbnail(firstTrack.thumbnail)
+          .setTimestamp(),
       );
       return;
     }

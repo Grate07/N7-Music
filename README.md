@@ -7,6 +7,7 @@ N7 Music is a Discord music bot built for clean, reliable voice-channel playback
 ## Features
 
 - Search for a song by title, artist, or supported URL with `/play`
+- Resolve public Spotify tracks, albums, and playlists into playable queued tracks
 - Per-server playback queues
 - Pause and resume playback
 - Skip the current track
@@ -23,7 +24,7 @@ N7 Music is a Discord music bot built for clean, reliable voice-channel playback
 
 | Command | What it does |
 | --- | --- |
-| `/play query:<song or URL>` | Joins your voice channel and plays or queues the first playable result |
+| `/play query:<song or URL>` | Joins your voice channel and plays or queues a song or public Spotify track, album, or playlist |
 | `/skip` | Skips to the next queued track |
 | `/pause` | Pauses the current track |
 | `/resume` | Resumes paused playback |
@@ -70,6 +71,8 @@ Set these values:
 | --- | --- | --- |
 | `DISCORD_TOKEN` | Yes | The bot token from the Discord Developer Portal |
 | `DISCORD_GUILD_ID` | No | A test server ID for instant command registration |
+| `SPOTIFY_CLIENT_ID` | No | Spotify Web API client ID for reliable public playlist resolution |
+| `SPOTIFY_CLIENT_SECRET` | No | Spotify Web API client secret paired with the client ID |
 | `PORT` | No | HTTP health server port; Render supplies this automatically |
 | `NODE_ENV` | No | Use `production` on Render |
 
