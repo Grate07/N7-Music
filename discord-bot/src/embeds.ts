@@ -1,23 +1,31 @@
 import { EmbedBuilder } from "discord.js";
 
-export const BLACK = 0x000000;
+export const BRAND_COLOR = 0x5865f2;
+export const SUCCESS_COLOR = 0x22c55e;
+export const ERROR_COLOR = 0xef4444;
+export const NOW_PLAYING_COLOR = 0x8b5cf6;
 export const BRAND = "N7 Music";
+const FOOTER = "N7 Music • high-fidelity playback";
 
 export const embed = (title: string, description?: string): EmbedBuilder => {
-  const message = new EmbedBuilder().setColor(BLACK).setTitle(title);
+  const message = new EmbedBuilder()
+    .setColor(BRAND_COLOR)
+    .setAuthor({ name: BRAND })
+    .setTitle(title)
+    .setFooter({ text: FOOTER });
 
   if (description) {
     message.setDescription(description);
   }
 
-  return message.setFooter({ text: BRAND });
+  return message;
 };
 
 export const errorEmbed = (message: string): EmbedBuilder =>
-  embed("Something went wrong", message);
+  embed("Something went wrong", message).setColor(ERROR_COLOR);
 
 export const successEmbed = (title: string, message: string): EmbedBuilder =>
-  embed(title, message);
+  embed(title, message).setColor(SUCCESS_COLOR);
 
 export const formatDuration = (seconds: number): string => {
   if (!Number.isFinite(seconds) || seconds < 0) {

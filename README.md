@@ -46,7 +46,7 @@ The project is a pnpm workspace containing a standalone TypeScript bot package. 
 - Use black Discord embeds with track artwork and requester information.
 - Discover the complete feature list with `/features`.
 - Run with bundled FFmpeg through `ffmpeg-static`.
-- Use the Discord voice channel's negotiated bitrate automatically for the clearest available playback.
+- Target a 128 kbps voice encoder bitrate for cleaner music playback; Discord still applies the server and channel limits.
 - Monitor startup with `/health` on Render.
 
 ## Commands
@@ -62,7 +62,7 @@ The project is a pnpm workspace containing a standalone TypeScript bot package. 
 | `/volume level:<1-100>` | Changes playback volume |
 | `/loop mode:<off/current song/queue>` | Changes the repeat mode |
 | `/stop` | Stops playback and clears the queue |
-| `/leave` | Clears the queue and disconnects the bot |
+| `/leave` | Clears the queue and explicitly disconnects the bot from the voice channel |
 | `/features` | Explains what N7 Music can do |
 
 ### Interactive Now Playing panel

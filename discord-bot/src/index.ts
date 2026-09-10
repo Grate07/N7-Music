@@ -28,6 +28,7 @@ import {
 import { startHealthServer } from "./health.js";
 
 const resolvedFfmpegPath = ffmpegPath as unknown as string | null;
+const HIGH_FIDELITY_BITRATE = 128;
 
 if (resolvedFfmpegPath) {
   process.env.FFMPEG_PATH = resolvedFfmpegPath;
@@ -140,12 +141,19 @@ const nowPlayingEmbed = (queue: MusicQueue) => {
     ? `<@${track.requestedBy.id}> (${track.requestedBy.username})`
     : "N7 Music";
   const status = queue.node.isPaused() ? "Paused" : "Playing";
+  const statusIcon = queue.node.isPaused() ? "⏸️" : "▶️";
 
   return embed(
-    `Now Playing · ${status}`,
-    `🟢 [${truncate(track.title)}](${track.url}) — **${truncate(track.author, 60)}**`,
+    "Now Playing",
+    `${statusIcon} **${truncate(track.title)}**\nby **${truncate(track.author, 60)}**`,
   )
+    .setColor(0x8b5cf6)
     .addFields(
+      {
+        name: "Playback",
+        value: `\`${status}\``,
+        inline: true,
+      },
       {
         name: "Duration",
         value: `\`${formatDuration(track.durationMS / 1000)}\``,
@@ -159,6 +167,12 @@ const nowPlayingEmbed = (queue: MusicQueue) => {
     )
     .setThumbnail(track.thumbnail)
     .setTimestamp();
+};
+
+const leaveVoiceChannel = (queue: MusicQueue): void => {
+  const connection = queue.connection;
+  queue.delete();
+  connection?.disconnect();
 };
 
 const searchEngineForSource = (source: string, query: string) => {
@@ -535,7 +549,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         await reply(interaction, errorEmbed("Join my voice channel to control playback."));
         return;
       }
-      queue.delete();
+      leaveVoiceChannel(queue);
       await reply(interaction, successEmbed("Stopped", "Playback stopped and the queue was cleared."));
       return;
     }
@@ -545,8 +559,14 @@ client.on(Events.InteractionCreate, async (interaction) => {
         await reply(interaction, errorEmbed("Join my voice channel to control playback."));
         return;
       }
-      queue.delete();
-      await reply(interaction, successEmbed("Disconnected", "I left the voice channel."));
+      leaveVoiceChannel(queue);
+      await reply(
+        interaction,
+        successEmbed(
+          "Disconnected",
+          "I left the voice channel and cleared the queue.",
+        ),
+      );
       return;
     }
 
@@ -620,9 +640,9 @@ player.events.on("playerError", (queue, error) => {
 });
 
 player.events.on("playerStart", async (queue) => {
-  // "auto" uses the voice channel's negotiated bitrate instead of the
-  // library's conservative 64 kbps fallback.
-  queue.node.setBitrate("auto");
+  // 128 kbps is a clear target for music playback; Discord still applies
+  // the server and channel bitrate limits when they are lower.
+  queue.node.setBitrate(HIGH_FIDELITY_BITRATE);
   updatePresence(queue);
 
   const channel = queue.metadata?.channel;
