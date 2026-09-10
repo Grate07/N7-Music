@@ -640,17 +640,20 @@ player.events.on("playerError", (queue, error) => {
 });
 
 player.events.on("playerStart", async (queue) => {
-  // 128 kbps is a clear target for music playback; Discord still applies
-  // the server and channel bitrate limits when they are lower.
-  queue.node.setBitrate(HIGH_FIDELITY_BITRATE);
+  // Let Discord/player use the negotiated channel bitrate. The installed
+  // native Opus encoder does not expose the bitrate control safely on startup.
   updatePresence(queue);
 
   const channel = queue.metadata?.channel;
   if (channel && "send" in channel && typeof channel.send === "function") {
-    await channel.send({
-      embeds: [nowPlayingEmbed(queue)],
-      components: controlPanel(queue),
-    });
+    try {
+      await channel.send({
+        embeds: [nowPlayingEmbed(queue)],
+        components: controlPanel(queue),
+      });
+    } catch (error) {
+      console.error("Could not send the now-playing panel:", error);
+    }
   }
 });
 
