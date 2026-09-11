@@ -19,16 +19,17 @@ import ffmpegPath from "ffmpeg-static";
 import { commands } from "./commands.js";
 import { config } from "./config.js";
 import {
+  compactEmbed,
   embed,
   errorEmbed,
   formatDuration,
+  formatLongDuration,
   successEmbed,
   truncate,
 } from "./embeds.js";
 import { startHealthServer } from "./health.js";
 
 const resolvedFfmpegPath = ffmpegPath as unknown as string | null;
-const HIGH_FIDELITY_BITRATE = 128;
 
 if (resolvedFfmpegPath) {
   process.env.FFMPEG_PATH = resolvedFfmpegPath;
@@ -76,60 +77,77 @@ const sameVoiceChannel = (
 type MusicQueue = ReturnType<typeof player.nodes.create>;
 
 const controlPanel = (queue: MusicQueue): ActionRowBuilder<ButtonBuilder>[] => {
-  const loopLabel =
-    queue.repeatMode === QueueRepeatMode.TRACK
-      ? "Loop song"
-      : queue.repeatMode === QueueRepeatMode.QUEUE
-        ? "Loop queue"
-        : "Loop";
-
   return [
     new ActionRowBuilder<ButtonBuilder>().addComponents(
       new ButtonBuilder()
         .setCustomId("n7:previous")
         .setEmoji("⏮️")
-        .setLabel("Previous")
         .setStyle(ButtonStyle.Secondary),
       new ButtonBuilder()
         .setCustomId("n7:pause")
         .setEmoji(queue.node.isPaused() ? "▶️" : "⏸️")
-        .setLabel(queue.node.isPaused() ? "Resume" : "Pause")
         .setStyle(ButtonStyle.Secondary),
       new ButtonBuilder()
         .setCustomId("n7:skip")
         .setEmoji("⏭️")
-        .setLabel("Next")
         .setStyle(ButtonStyle.Secondary),
       new ButtonBuilder()
         .setCustomId("n7:queue")
         .setEmoji("🎼")
-        .setLabel("Queue")
         .setStyle(ButtonStyle.Secondary),
     ),
     new ActionRowBuilder<ButtonBuilder>().addComponents(
       new ButtonBuilder()
         .setCustomId("n7:stop")
         .setEmoji("⏹️")
-        .setLabel("Stop")
         .setStyle(ButtonStyle.Danger),
+    ),
+    new ActionRowBuilder<ButtonBuilder>().addComponents(
       new ButtonBuilder()
         .setCustomId("n7:loop")
         .setEmoji("🔁")
-        .setLabel(loopLabel)
         .setStyle(ButtonStyle.Secondary),
       new ButtonBuilder()
         .setCustomId("n7:shuffle")
         .setEmoji("🔀")
-        .setLabel(queue.isShuffling ? "Shuffle on" : "Shuffle")
         .setStyle(ButtonStyle.Secondary),
+    ),
+    new ActionRowBuilder<ButtonBuilder>().addComponents(
       new ButtonBuilder()
         .setCustomId("n7:autoplay")
         .setEmoji("♻️")
-        .setLabel(queue.repeatMode === QueueRepeatMode.AUTOPLAY ? "Autoplay on" : "Autoplay")
         .setStyle(ButtonStyle.Secondary),
     ),
   ];
 };
+
+const sourceIcon = (source: string): string => {
+  switch (source.toLowerCase()) {
+    case "spotify":
+      return "🟢";
+    case "soundcloud":
+      return "🟠";
+    case "youtube":
+      return "🔴";
+    default:
+      return "🎵";
+  }
+};
+
+const requestedByLabel = (requestedBy: { id: string } | null | undefined): string =>
+  requestedBy ? `<@${requestedBy.id}>` : "N7 Music";
+
+const compactTrackDetails = (
+  track: {
+    title: string;
+    url: string;
+    author: string;
+    source: string;
+  },
+  requester: { id: string } | null | undefined,
+  duration: string,
+): string =>
+  `${sourceIcon(track.source)} [${truncate(track.title)}](${track.url}) - ${truncate(track.author, 60)}\nDuration: \`${duration}\`\nRequested by ${requestedByLabel(requester)}`;
 
 const nowPlayingEmbed = (queue: MusicQueue) => {
   const track = queue.currentTrack;
@@ -137,36 +155,16 @@ const nowPlayingEmbed = (queue: MusicQueue) => {
     return errorEmbed("Nothing is playing right now.");
   }
 
-  const requester = track.requestedBy
-    ? `<@${track.requestedBy.id}> (${track.requestedBy.username})`
-    : "N7 Music";
-  const status = queue.node.isPaused() ? "Paused" : "Playing";
-  const statusIcon = queue.node.isPaused() ? "⏸️" : "▶️";
-
-  return embed(
-    "Now Playing",
-    `${statusIcon} **${truncate(track.title)}**\nby **${truncate(track.author, 60)}**`,
-  )
-    .setColor(0x8b5cf6)
-    .addFields(
-      {
-        name: "Playback",
-        value: `\`${status}\``,
-        inline: true,
-      },
-      {
-        name: "Duration",
-        value: `\`${formatDuration(track.durationMS / 1000)}\``,
-        inline: true,
-      },
-      {
-        name: "Requested by",
-        value: requester,
-        inline: false,
-      },
+  return compactEmbed("Now Playing")
+    .setURL(track.url)
+    .setDescription(
+      compactTrackDetails(
+        track,
+        track.requestedBy,
+        formatLongDuration(track.durationMS / 1000),
+      ),
     )
-    .setThumbnail(track.thumbnail)
-    .setTimestamp();
+    .setThumbnail(track.thumbnail);
 };
 
 const leaveVoiceChannel = (queue: MusicQueue): void => {
@@ -482,28 +480,18 @@ client.on(Events.InteractionCreate, async (interaction) => {
       const playlistLabel = result.playlist
         ? `\n\n**${tracksToQueue.length} tracks** from **${truncate(result.playlist.title, 100)}** added to the queue.`
         : "";
-      const requestedBy = `<@${interaction.user.id}> (${interaction.user.username})`;
 
       await reply(
         interaction,
-        successEmbed(
-          "Added to Queue",
-          `🟢 [${truncate(firstTrack.title)}](${firstTrack.url}) — **${truncate(firstTrack.author, 60)}**${playlistLabel}`,
-        )
-          .addFields(
-            {
-              name: "Duration",
-              value: `\`${formatDuration(firstTrack.durationMS / 1000)}\``,
-              inline: true,
-            },
-            {
-              name: "Requested by",
-              value: requestedBy,
-              inline: false,
-            },
+        compactEmbed("Added to Queue")
+          .setDescription(
+            `${compactTrackDetails(
+              firstTrack,
+              { id: interaction.user.id },
+              formatDuration(firstTrack.durationMS / 1000),
+            )}${playlistLabel}`,
           )
-          .setThumbnail(firstTrack.thumbnail)
-          .setTimestamp(),
+          .setThumbnail(firstTrack.thumbnail),
       );
       return;
     }
