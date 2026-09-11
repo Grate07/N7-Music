@@ -13,6 +13,8 @@ import {
   type ChatInputCommandInteraction,
   type GuildMember,
 } from "discord.js";
+import { execFile as execFileCallback } from "node:child_process";
+import { promisify } from "node:util";
 import { Player, QueryType, QueueRepeatMode } from "discord-player";
 import { DefaultExtractors, SpotifyExtractor } from "@discord-player/extractor";
 import ffmpegPath from "ffmpeg-static";
@@ -30,6 +32,11 @@ import {
 import { startHealthServer } from "./health.js";
 
 const resolvedFfmpegPath = ffmpegPath as unknown as string | null;
+const execFile = promisify(execFileCallback);
+const spotifyPlaybackMetadata = new Map<
+  string,
+  { title: string; author: string; thumbnail?: string }
+>();
 
 if (resolvedFfmpegPath) {
   process.env.FFMPEG_PATH = resolvedFfmpegPath;
@@ -137,6 +144,81 @@ const sourceIcon = (source: string): string => {
 const requestedByLabel = (requestedBy: { id: string } | null | undefined): string =>
   requestedBy ? `<@${requestedBy.id}>` : "N7 Music";
 
+const rememberPlaybackMetadata = (track: {
+  url: string;
+  title: string;
+  author: string;
+  thumbnail?: string;
+}): void => {
+  spotifyPlaybackMetadata.set(track.url, {
+    title: track.title,
+    author: track.author,
+    thumbnail: track.thumbnail,
+  });
+};
+
+const trackArtwork = (track: {
+  thumbnail?: string;
+  metadata?: unknown;
+}): string | undefined => {
+  const metadata = track.metadata as
+    | {
+        source?: {
+          coverArt?: { sources?: Array<{ url?: string }> };
+          album?: { images?: Array<{ url?: string }> };
+          thumbnail?: string | null;
+          thumbnail_url?: string | null;
+        };
+      }
+    | undefined;
+  const source = metadata?.source;
+  const candidates = [
+    source?.coverArt?.sources?.[0]?.url,
+    source?.album?.images?.[0]?.url,
+    source?.thumbnail,
+    source?.thumbnail_url,
+    track.thumbnail,
+  ];
+
+  return candidates.find(
+    (url): url is string =>
+      typeof url === "string" && !url.includes("twitter_card-default"),
+  );
+};
+
+const resolveSpotifyStream = async (url: string): Promise<string> => {
+  const metadata = spotifyPlaybackMetadata.get(url);
+  if (!metadata) {
+    throw new Error(`No Spotify playback metadata was cached for ${url}`);
+  }
+
+  const query = `ytsearch1:${metadata.title} ${metadata.author} official audio`;
+  const { stdout } = await execFile(process.env.YTDLP_PATH ?? "yt-dlp", [
+    "--no-playlist",
+    "--no-warnings",
+    "--quiet",
+    "--format",
+    "bestaudio[acodec=opus]/bestaudio",
+    "--match-filter",
+    "duration > 60 & duration < 21600",
+    "--get-url",
+    query,
+  ], {
+    maxBuffer: 1024 * 1024,
+    timeout: 45_000,
+  });
+  const streamUrl = stdout
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .find((line) => /^https?:\/\//i.test(line));
+
+  if (!streamUrl) {
+    throw new Error(`yt-dlp returned no full-length audio URL for ${query}`);
+  }
+
+  return streamUrl;
+};
+
 const compactTrackDetails = (
   track: {
     title: string;
@@ -164,7 +246,7 @@ const nowPlayingEmbed = (queue: MusicQueue) => {
         formatLongDuration(track.durationMS / 1000),
       ),
     )
-    .setThumbnail(track.thumbnail);
+    .setThumbnail(trackArtwork(track) ?? track.thumbnail);
 };
 
 const leaveVoiceChannel = (queue: MusicQueue): void => {
@@ -380,6 +462,8 @@ client.once(Events.ClientReady, async (readyClient) => {
       [SpotifyExtractor.identifier]: {
         clientId: config.spotifyClientId,
         clientSecret: config.spotifyClientSecret,
+        createStream: async (_extractor: SpotifyExtractor, url: string) =>
+          resolveSpotifyStream(url),
       },
       "com.discord-player.vimeoextractor": undefined,
     });
@@ -471,6 +555,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
       const firstTrack = result.tracks[0];
       const tracksToQueue = result.playlist ? result.tracks : [firstTrack];
+      tracksToQueue.forEach(rememberPlaybackMetadata);
       queue.addTrack(tracksToQueue);
 
       if (!queue.node.isPlaying() && !queue.node.isPaused()) {
@@ -491,7 +576,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
               formatDuration(firstTrack.durationMS / 1000),
             )}${playlistLabel}`,
           )
-          .setThumbnail(firstTrack.thumbnail),
+          .setThumbnail(trackArtwork(firstTrack) ?? firstTrack.thumbnail),
       );
       return;
     }

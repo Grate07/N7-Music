@@ -46,6 +46,7 @@ The project is a pnpm workspace containing a standalone TypeScript bot package. 
 - Use black Discord embeds with track artwork and requester information.
 - Discover the complete feature list with `/features`.
 - Run with bundled FFmpeg through `ffmpeg-static`.
+- Resolve Spotify tracks to full-length public audio at the highest available source quality instead of limited preview clips.
 - Use the Discord voice channel's negotiated bitrate for clear playback without forcing an incompatible native encoder setting.
 - Monitor startup with `/health` on Render.
 
