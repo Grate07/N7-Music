@@ -1,0 +1,23 @@
+modules = ["nodejs-24"]
+[workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "N7 Music Bot"
+
+[[workflows.workflow]]
+name = "N7 Music Bot"
+author = "agent"
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "DISCORD_TOKEN=\"$DISCORD_BOT_TOKEN\" PORT=10000 pnpm --filter @workspace/discord-bot run start"
